@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -81,11 +81,14 @@ namespace HeavenStrikeLuLu
             Auto.AddItem(new MenuItem("QA", "Ks Q").SetValue(true));
             Auto.AddItem(new MenuItem("EA", "Ks E").SetValue(true));
             Auto.AddItem(new MenuItem("QEA", "Ks E+Q").SetValue(true));
-            Auto.AddItem(new MenuItem("QAH", "Q harass").SetValue(true));
-            Auto.AddItem(new MenuItem("EAH", "E harass").SetValue(true));
             Auto.AddItem(new MenuItem("WG", "W anti gap").SetValue(true));
             Auto.AddItem(new MenuItem("WI", "W interrupt").SetValue(true));
             Auto.AddItem(new MenuItem("RI", "R interrupt").SetValue(true));
+            //AutoHarass
+            Menu AutoHarass = Auto.AddSubMenu(new Menu("Auto Harass", "Auto Harass"));
+            AutoHarass.AddItem(new MenuItem("AH", "Auto harass").SetValue(new KeyBind("H".ToCharArray()[0],KeyBindType.Toggle,true)));
+            AutoHarass.AddItem(new MenuItem("QAH", "Q harass").SetValue(true));
+            AutoHarass.AddItem(new MenuItem("EAH", "E harass").SetValue(true));
             //Auto shield
             Menu AutoShield = Auto.AddSubMenu(new Menu("Auto Shield", "Auto Shield"));
             AutoShield.AddItem(new MenuItem("EAS", "Auto Shield E").SetValue(true));
@@ -208,13 +211,13 @@ namespace HeavenStrikeLuLu
                     && _q.GetDamage(x) >= x.Health))
                 {
                     // E target is hero
-                    foreach (var target in HeroManager.AllHeroes.Where(x => x.IsValidTarget(_e.Range) && x.Distance(hero.Position) <= _q.Range)
+                    foreach (var target in HeroManager.AllHeroes.Where(x => x.IsValidTarget(_e.Range,false) && x.Distance(hero.Position) <= _q.Range)
                         .OrderByDescending(y => 1 - y.Distance(hero.Position)))
                     {
                         _e.Cast(target);
                     }
                     // E target is minion
-                    foreach (var target in MinionManager.GetMinions(_e.Range,MinionTypes.All,MinionTeam.All).Where(x => x.IsValidTarget(_q.Range) 
+                    foreach (var target in MinionManager.GetMinions(_e.Range,MinionTypes.All,MinionTeam.All).Where(x => x.IsValidTarget(_e.Range,false) 
                         && !x.Name.ToLower().Contains("ward")  && x.Distance(hero.Position) <= _q.Range)
                             .OrderByDescending(y => 1 - y.Distance(hero.Position)))
                     {
@@ -244,25 +247,29 @@ namespace HeavenStrikeLuLu
                         _r.Cast(hero);
                 }
             }
-            //auto Q Harass
-            if (_q.IsReady() && _menu.Item("QAH").GetValue<bool>())
+            //auto Harass
+            if (!UnderTower(Player.ServerPosition) && _menu.Item("AH").GetValue<KeyBind>().Active)
             {
-                var target = TargetSelector.GetTarget(_q.Range, TargetSelector.DamageType.Magical);
-                var target2 = TargetSelector.GetTarget(_q.Range, TargetSelector.DamageType.Magical, true, null, pix != null ? pix.Position : Player.Position);
-                if (target != null && target.IsValidTarget())
-                    _q.Cast(target);
-                if (target2 != null && target2.IsValidTarget())
+                //auto Q Harass
+                if (_q.IsReady() && _menu.Item("QAH").GetValue<bool>())
                 {
-                    _q2.SetSkillshot(0.25f, 70, 1450, false, SkillshotType.SkillshotLine, pix.Position, pix.Position);
-                    _q2.Cast(target2);
+                    var target = TargetSelector.GetTarget(_q.Range, TargetSelector.DamageType.Magical);
+                    var target2 = TargetSelector.GetTarget(_q.Range, TargetSelector.DamageType.Magical, true, null, pix != null ? pix.Position : Player.Position);
+                    if (target != null && target.IsValidTarget())
+                        _q.Cast(target);
+                    if (target2 != null && target2.IsValidTarget())
+                    {
+                        _q2.SetSkillshot(0.25f, 70, 1450, false, SkillshotType.SkillshotLine, pix.Position, pix.Position);
+                        _q2.Cast(target2);
+                    }
                 }
-            }
-            //aut E Harass
-            if (_e.IsReady() && _menu.Item("EAH").GetValue<bool>())
-            {
-                var target = TargetSelector.GetTarget(_e.Range, TargetSelector.DamageType.Magical);
-                if (target != null && target.IsValidTarget())
-                    _e.Cast(target);
+                //aut E Harass
+                if (_e.IsReady() && _menu.Item("EAH").GetValue<bool>())
+                {
+                    var target = TargetSelector.GetTarget(_e.Range, TargetSelector.DamageType.Magical);
+                    if (target != null && target.IsValidTarget())
+                        _e.Cast(target);
+                }
             }
         }
         public static void Combo()
@@ -311,7 +318,7 @@ namespace HeavenStrikeLuLu
                 if (hero != null && hero.IsValidTarget() && !hero.IsValidTarget(_q.Range))
                 {
                     // E target is hero
-                    foreach (var target in HeroManager.AllHeroes.Where(x => x.IsValidTarget(_e.Range) && x.Distance(hero.Position) <= _q.Range)
+                    foreach (var target in HeroManager.AllHeroes.Where(x => x.IsValidTarget(_e.Range,false) && x.Distance(hero.Position) <= _q.Range)
                         .OrderByDescending(y => 1 - y.Distance(hero.Position)))
                     {
                         _e.Cast(target);
@@ -320,7 +327,7 @@ namespace HeavenStrikeLuLu
                         _q2.Cast(hero);
                     }
                     // E target is minion
-                    foreach (var target in MinionManager.GetMinions(_e.Range, MinionTypes.All, MinionTeam.All).Where(x => x.IsValidTarget(_q.Range)
+                    foreach (var target in MinionManager.GetMinions(_e.Range, MinionTypes.All, MinionTeam.All).Where(x => x.IsValidTarget(_e.Range,false)
                         && !x.Name.ToLower().Contains("ward") && x.Distance(hero.Position) <= _q.Range)
                             .OrderByDescending(y => 1 - y.Distance(hero.Position)))
                     {
@@ -366,23 +373,20 @@ namespace HeavenStrikeLuLu
                     var hero = TargetSelector.GetTarget(_q.Range + _e.Range,TargetSelector.DamageType.Magical);
                     if (hero != null && hero.IsValidTarget() && !hero.IsValidTarget(_q.Range))
                     {
-                        Game.PrintChat("xx");
                         // E target is hero
-                        foreach (var target in HeroManager.AllHeroes.Where(x => x.IsValidTarget(_e.Range) && x.Distance(hero.Position) <= _q.Range)
+                        foreach (var target in HeroManager.AllHeroes.Where(x => x.IsValidTarget(_e.Range,false) && x.Distance(hero.Position) <= _q.Range)
                             .OrderByDescending(y => 1 - y.Distance(hero.Position)))
                         {
-                            Game.PrintChat("yy");
                             _e.Cast(target);
                             _q.Cast(hero);
                             _q2.SetSkillshot(0.25f, 70, 1450, false, SkillshotType.SkillshotLine, pix.Position, pix.Position);
                             _q2.Cast(hero);
                         }
                         // E target is minion
-                        foreach (var target in MinionManager.GetMinions(_e.Range, MinionTypes.All, MinionTeam.All).Where(x => x.IsValidTarget(_q.Range)
+                        foreach (var target in MinionManager.GetMinions(_e.Range, MinionTypes.All, MinionTeam.All).Where(x => x.IsValidTarget(_e.Range,false)
                             && !x.Name.ToLower().Contains("ward") && x.Distance(hero.Position) <= _q.Range)
                                 .OrderByDescending(y => 1 - y.Distance(hero.Position)))
                         {
-                            Game.PrintChat("zz");
                             // target die with E ?
                             if (!target.IsAlly && target.Health > _e.GetDamage(target) || target.IsAlly)
                             {
@@ -404,6 +408,13 @@ namespace HeavenStrikeLuLu
             if (!Player.IsDead)
                 pix = ObjectManager.Get<GameObject>().Find(x => x.IsAlly && x.Name == "RobotBuddy") == null ? 
                     Player : ObjectManager.Get<GameObject>().Find(x => x.IsAlly && x.Name == "RobotBuddy");
+        }
+        // undertower from BrianSharp
+        private static bool UnderTower(Vector3 pos)
+        {
+            return
+                ObjectManager.Get<Obj_AI_Turret>()
+                    .Any(i => i.IsEnemy && !i.IsDead && i.Distance(pos) < 850 + Player.BoundingRadius);
         }
     }
 }
